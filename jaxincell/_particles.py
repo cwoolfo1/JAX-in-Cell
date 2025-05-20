@@ -107,3 +107,62 @@ def boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_fields_at_x):
     # vs_nplus1 = vs_n + (q_ms) * E_fields_at_x * dt
     # xs_nplus1 = xs_nplushalf + dt * vs_nplus1
     # return xs_nplus1, vs_nplus1
+
+
+def sr_boris_step(x, v, q_m, E_atX, B_atX, C, dt):
+    """
+    Perform a Relativistic single Boris step for particle motion in electromagnetic fields.
+
+    The Boris algorithm is a time-centered, second-order method for integrating 
+    the equations of motion of charged particles in electromagnetic fields. It 
+    is widely used in plasma physics and particle simulations due to its 
+    simplicity and conservation properties.
+
+    Parameters:
+        x (array-like): The current position of the particle as a 3D vector.
+        v (array-like): The current velocity of the particle as a 3D vector.
+        q_m (float): The charge-to-mass ratio of the particle.
+        E_atX (array-like): The electric field at the particle's position as a 3D vector.
+        B_atX (array-like): The magnetic field at the particle's position as a 3D vector.
+        C (float): The speed of light in the simulation units.
+        dt (float): The time step for the integration.
+
+    Returns:
+        tuple: A tuple containing:
+            - x (array-like): The updated position of the particle as a 3D vector.
+            - v (array-like): The updated velocity of the particle as a 3D vector.
+    """
+
+    E = jnp.array(E_atX, E_atX, E_atX)
+    # apply the same electric field along every direction
+
+    B = jnp.array(B_atX, B_atX, B_atX)
+
+    gamma = jnp.sqrt( 1 + ((v[0]**2 + v[1]**2 + v[2]**2)/(C**2))  )
+    # define the gamma factor
+
+    vminus = v * gamma + (q_m*dt/2)*E
+    # get the v minus vector
+
+    t = (q_m*dt/2) * B / gamma
+    # calculate the t vector
+
+    vprime = vminus + jnp.cross(vminus, t)
+    # calculate the v plus vector
+
+    s = 2*t / (1 + t[0]**2 + t[1]**2 + t[2]**2 )
+    # calculate the s vector
+
+    vplus  = vminus + jnp.cross(vprime, s)
+    # calculate the v plus vector
+
+    newv = vplus + (q_m * dt / 2)*E
+    # calculate the new velocity
+
+    new_gamma = jnp.sqrt(1 + ( newv[0]**2 + newv[1]**2 + newv[2]**2 ) )
+    # define the new gamma factor
+
+    x = x + (newv/new_gamma)*dt
+    # advance the particles
+
+    return x, v

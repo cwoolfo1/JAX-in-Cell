@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 from jax import lax, jit, vmap, config
 from ._particles import rotation
-from ._constants import epsilon_0, speed_of_light
+from ._constants import epsilon_0, speed_of_light, elementary_charge, mass_electron, mass_proton
 
 
 def initialize_a(nx):
@@ -225,6 +225,9 @@ def relativistic_E_from_Poisson_1D_FFT(charge_density, dx, a1):
     # calculate the relativistic correction factor for the electric field
     E_k = E_k * relativistic_E_correction
     # apply the correction factor to the electric field in Fourier space
+
+    # print(relativstic_phi_correction)
+    # print(relativistic_E_correction)
 
 
     E = jnp.fft.ifft(E_k).real

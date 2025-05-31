@@ -83,9 +83,12 @@ def trace_energy_momentum_tensor(vs, ms):
 
     C = speed_of_light
     # Calculate the four-velocity for each particle
-    four_velocity = jax.vmap(lambda v : jax.numpy.array([v[0], v[1], v[2], C / jax.numpy.sqrt(1 - (v[0]**2 + v[1]**2 + v[2]**2)/(C**2) )]))(vs, ms)
+    # print(vs.shape)
+    # print(ms.shape)
+    four_velocity = jax.vmap(lambda v : jax.numpy.array([v[0], v[1], v[2], C / jax.numpy.sqrt(1 - (v[0]**2 + v[1]**2 + v[2]**2)/(C**2) )]), in_axes=(0))(vs)
     # v = (v0, v1, v2, gamma * C) defining four vector velocity
-    trace = jax.vmap(lambda v, m: m*jnp.sum(jnp.square(v)))(four_velocity, ms)
+    # print(four_velocity.shape)
+    trace = jax.vmap(lambda v, m: m*jnp.sum(jnp.square(v)), in_axes=(0,0))(four_velocity, ms)
     # compute the trace of outerproduct of the four velocity times the mass of the particle
     return jnp.sum(trace)
 

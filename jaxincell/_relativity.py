@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from jax import lax, jit, vmap, config
 from ._particles import rotation
 from ._constants import epsilon_0, speed_of_light, elementary_charge, mass_electron, mass_proton
+from ._particles import fields_to_particles_grid
 
 
 def initialize_a(nx):
@@ -149,9 +150,36 @@ def solve_metric(a0, a1, lam, vs, ms, G, dx, dt):
 
     return a2
 
+def da_dx(a, dx):
+    """
+    Compute the spatial derivative of the scalar metric `a` fourier transform.
+    This function calculates the derivative of the scalar metric `a` with respect to
+    the spatial coordinate using the Fourier transform method.
+    Args:
+        a (ndarray): The scalar metric at the current time step.
+        dx (float): The spatial resolution (grid spacing).
+    Returns:
+        ndarray: The spatial derivative of the scalar metric `a`.
+    """
+
+    a_k = jnp.fft.fft(a)
+    # Fourier transform of the scalar metric a
+
+    nx = a.shape[0]
+    kx = jnp.fft.fftfreq(nx, d=dx) * 2 * jnp.pi
+    # Create the wavevector in Fourier space
+
+    a_k_dx = 1j * kx * a_k
+    # Compute the Fourier transform of the derivative of a
+
+    a_dx = jnp.fft.ifft(a_k_dx).real
+    # Inverse Fourier transform to get the spatial derivative in real space
+
+    return a_dx
+
 
 @jit
-def relativistic_boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_fields_at_x, a0_a1):
+def relativistic_boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_fields_at_x, a1, a0, t, dx, grid, field_BC_left, field_BC_right):
     """
     This function performs one step of the Boris algorithm for particle motion. 
     The particle velocity is updated using the electric and magnetic fields at its position, 
@@ -170,19 +198,34 @@ def relativistic_boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_field
             - xs_nplus3_2 (array): The updated particle positions at time step n+3/2, shape (N, 3).
             - vs_nplus1 (array): The updated particle velocities at time step n+1, shape (N, 3).
     """
+
+    C = speed_of_light
+
     # First half step update for velocity due to electric field
     vs_n_int = vs_n + (q_ms) * E_fields_at_x * dt / 2
-    
+
     # Apply the Boris rotation step for the magnetic field
     vs_n_rot = vmap(lambda B_n, v_n, q_m: rotation(dt, B_n, v_n, q_m))(B_fields_at_x, vs_n_int, q_ms[:, 0])
-    
+
     # Second half step update for velocity due to electric field
     vs_nplus1 = vs_n_rot + (q_ms) * E_fields_at_x * dt / 2
 
 
+    ############################ Calculate the relativistic correction factor for the velocity ############################
+    a0_a1 = a0 / a1
+    a0_a1_at_x = vmap(lambda x_n: fields_to_particles_grid(
+    x_n, a0_a1, dx, grid + dx / 2, grid[0], field_BC_left, field_BC_right))(xs_nplushalf)
+    # Calculate the ratio of the scalar metric `a` at time step n-1 to the metric at time step n
+
+    da_dx_at_x = vmap(lambda x_n: fields_to_particles_grid(
+        x_n, da_dx(a1, dx), dx, grid + dx / 2, grid[0], field_BC_left, field_BC_right))(xs_nplushalf)
+    # Calculate the spatial derivative of the scalar metric `a` at the particle positions
+    #######################################################################################################################
+
     # Update the particle positions using the new velocities and the relativistic correction
-    xs_nplus3_2 = xs_nplushalf + dt * vs_nplus1 + xs_nplushalf / 2 * (1 - a0_a1)
-    
+    xs_nplus3_2 = xs_nplushalf + dt * vs_nplus1 + xs_nplushalf / 2 * (1 - a0_a1_at_x) - C**2 * t * da_dx_at_x
+    # where C is the speed of light and t is the time step
+
     return xs_nplus3_2, vs_nplus1
     # vs_nplus1 = vs_n + (q_ms) * E_fields_at_x * dt
     # xs_nplus1 = xs_nplushalf + dt * vs_nplus1

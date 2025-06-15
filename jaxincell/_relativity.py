@@ -178,6 +178,24 @@ def da_dx(a, dx):
     return a_dx
 
 
+def da_dt(a0, a1, dt):
+    """
+    Compute the time derivative of the scalar metric `a` using finite differences.
+    
+    This function calculates the time derivative of the scalar metric `a` at the current time step
+    using the values from the previous two time steps.
+
+    Args:
+        a0 (ndarray): The scalar metric at the previous time step (t - dt).
+        a1 (ndarray): The scalar metric at the current time step (t).
+        dt (float): The time step for evolution.
+
+    Returns:
+        ndarray: The time derivative of the scalar metric `a`.
+    """
+    return (a1 - a0) / dt
+
+
 @jit
 def relativistic_boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_fields_at_x, a1, a0, t, dx, grid, field_BC_left, field_BC_right):
     """
@@ -201,80 +219,36 @@ def relativistic_boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_field
 
     C = speed_of_light
 
+    ################### Relativistic Corrections ###################
+    a1_at_x = vmap(lambda x_n: fields_to_particles_grid(
+    x_n, a1, dx, grid + dx / 2, grid[0], field_BC_left, field_BC_right))(xs_nplushalf)
+    # interpolate the scalar metric `a1` at the particle positions
+
+    da_dt_at_x = vmap(lambda x_n: fields_to_particles_grid(
+        x_n, da_dt(a0, a1, dt), dx, grid + dx / 2, grid[0], field_BC_left, field_BC_right))(xs_nplushalf)
+    # Calculate the time derivative of the scalar metric `a` at the particle positions
+
+    gamma = 1 / jnp.sqrt( -a1_at_x + jnp.sum(vs_n**2, axis=1) / C**2 / a1_at_x )
+    # calculate the relativistic factor gamma at the particle positions
+
+    relativistic_correction = - gamma * da_dt_at_x / (2 * a1_at_x) * (C**2 - jnp.sum(vs_n**2, axis=1) + C * jnp.sum(vs_n, axis=1) )
+    # calculate the relativistic correction factor
+    ################################################################
+
     # First half step update for velocity due to electric field
-    vs_n_int = vs_n + (q_ms) * E_fields_at_x * dt / 2
+    vs_n_int = vs_n + (q_ms) * E_fields_at_x * dt / 2 * (-1 * a1_at_x) + relativistic_correction
 
     # Apply the Boris rotation step for the magnetic field
     vs_n_rot = vmap(lambda B_n, v_n, q_m: rotation(dt, B_n, v_n, q_m))(B_fields_at_x, vs_n_int, q_ms[:, 0])
 
     # Second half step update for velocity due to electric field
-    vs_nplus1 = vs_n_rot + (q_ms) * E_fields_at_x * dt / 2
+    vs_nplus1 = vs_n_rot + (q_ms) * E_fields_at_x * dt / 2 * (-1 * a1_at_x) + relativistic_correction
+    # Update the particle velocities at time step n+1
 
-
-    ############################ Calculate the relativistic correction factor for the velocity ############################
-    a0_a1 = a0 / a1
-    a0_a1_at_x = vmap(lambda x_n: fields_to_particles_grid(
-    x_n, a0_a1, dx, grid + dx / 2, grid[0], field_BC_left, field_BC_right))(xs_nplushalf)
-    # Calculate the ratio of the scalar metric `a` at time step n-1 to the metric at time step n
-
-    da_dx_at_x = vmap(lambda x_n: fields_to_particles_grid(
-        x_n, da_dx(a1, dx), dx, grid + dx / 2, grid[0], field_BC_left, field_BC_right))(xs_nplushalf)
-    # Calculate the spatial derivative of the scalar metric `a` at the particle positions
-    #######################################################################################################################
-
-    # Update the particle positions using the new velocities and the relativistic correction
-    xs_nplus3_2 = xs_nplushalf + dt * vs_nplus1 + xs_nplushalf / 2 * (1 - a0_a1_at_x) - C**2 * t * da_dx_at_x
-    # where C is the speed of light and t is the time step
+    # Update the particle positions using the new velocities
+    xs_nplus3_2 = xs_nplushalf + dt * vs_nplus1
 
     return xs_nplus3_2, vs_nplus1
     # vs_nplus1 = vs_n + (q_ms) * E_fields_at_x * dt
     # xs_nplus1 = xs_nplushalf + dt * vs_nplus1
     # return xs_nplus1, vs_nplus1
-
-
-
-@jit
-def relativistic_E_from_Poisson_1D_FFT(charge_density, dx, a1):
-    """
-    Solve for the electric field E = -d(phi)/dx using FFT, 
-    where phi is derived from the 1D Poisson equation.
-    Parameters:
-    charge_density : 1D numpy array, source term (right-hand side of Poisson equation)
-    dx : float, grid spacing in the x-direction
-    Returns:
-    E : 1D numpy array, electric field
-    """
-    # Get the number of grid points
-    nx = len(charge_density)
-    # Create wavenumbers in Fourier space (k_x)
-    kx = jnp.fft.fftfreq(nx, d=dx) * 2 * jnp.pi
-    # Perform 1D FFT of the source term
-    charge_density_k = jnp.fft.fft(charge_density)
-    # Avoid division by zero for the k = 0 mode
-    kx = kx.at[0].set(1.0)  # Prevent division by zero
-    # Solve Poisson equation in Fourier space
-    phi_k = -charge_density_k / kx**2 / epsilon_0
-    # Set the k = 0 mode of phi_k to 0 to ensure a zero-average solution
-
-    relativstic_phi_correction = a1 / (   1 - (1/(2*a1*a1)) - (1/(4*a1*a1*a1*a1))   )
-    # calculate the relativistic correction factor for the potential
-    phi_k = phi_k * relativstic_phi_correction
-    # apply the correction factor to the potential in Fourier space
-
-
-    phi_k = phi_k.at[0].set(0.0)
-    # Compute electric field from potential in Fourier space
-    E_k = 1j * kx * phi_k
-    # Inverse FFT to transform back to spatial domain
-
-    relativistic_E_correction = 1 + (1/(2*a1*a1))
-    # calculate the relativistic correction factor for the electric field
-    E_k = E_k * relativistic_E_correction
-    # apply the correction factor to the electric field in Fourier space
-
-    # print(relativstic_phi_correction)
-    # print(relativistic_E_correction)
-
-
-    E = jnp.fft.ifft(E_k).real
-    return E

@@ -263,7 +263,7 @@ def initialize_particles_fields(input_parameters={}, number_grid_points=50, numb
     external_B_field_x = parameters["external_magnetic_field_amplitude"] * jnp.cos(parameters["external_magnetic_field_wavenumber"] * jnp.linspace(-jnp.pi, jnp.pi, number_grid_points))
 
     a0, a1 = initialize_a(number_grid_points)
-    # initialize a0 and a1 for relativistic Boris step
+    # initialize a0, a1 using a flat space metric that reproduces special relativity
 
     # **Update parameters**
     parameters.update({
@@ -399,13 +399,13 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         positions = positions_plus1
 
         lam = 0
-        G = 0
+        G = 6.67430e-11  # Gravitational constant in m^3 kg^-1 s^-2
         # gravitational constant and cosmological constant
         a2 = solve_metric(a0, a1, lam, velocities, ms, G, dx, dt)
-
         a0 = a1
         a1 = a2
         # Update metric for relativistic Boris step
+        # print(f"a1 dtype: {a1.dtype}, a0 dtype: {a0.dtype}, a2 dtype: {a2.dtype}")
 
         # Prepare state for the next step
         carry = (E_field, B_field, positions_minus1_2, positions,

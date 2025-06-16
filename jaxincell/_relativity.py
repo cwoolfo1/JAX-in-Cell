@@ -4,6 +4,7 @@ from jax import lax, jit, vmap, config
 from ._particles import rotation
 from ._constants import epsilon_0, speed_of_light, elementary_charge, mass_electron, mass_proton
 from ._particles import fields_to_particles_grid
+from ._boundary_conditions import field_2_ghost_cells
 
 
 def initialize_a(nx):
@@ -19,7 +20,7 @@ def initialize_a(nx):
     Returns:
         jax.numpy.ndarray: A 1D array of shape (nx,) initialized to ones.
     """
-    return jnp.ones(nx), jnp.ones(nx)
+    return -1*jnp.ones(nx), -1*jnp.ones(nx)
 
 def energy_momentum_tensor(vs, ms):
     """
@@ -84,11 +85,8 @@ def trace_energy_momentum_tensor(vs, ms):
 
     C = speed_of_light
     # Calculate the four-velocity for each particle
-    # print(vs.shape)
-    # print(ms.shape)
     four_velocity = jax.vmap(lambda v : jax.numpy.array([v[0], v[1], v[2], C / jax.numpy.sqrt(1 - (v[0]**2 + v[1]**2 + v[2]**2)/(C**2) )]), in_axes=(0))(vs)
     # v = (v0, v1, v2, gamma * C) defining four vector velocity
-    # print(four_velocity.shape)
     trace = jax.vmap(lambda v, m: m*jnp.sum(jnp.square(v)), in_axes=(0,0))(four_velocity, ms)
     # compute the trace of outerproduct of the four velocity times the mass of the particle
     return jnp.sum(trace)
@@ -136,7 +134,7 @@ def solve_metric(a0, a1, lam, vs, ms, G, dx, dt):
 
     a_k_xx = -kx**2 * a_k
     # second derivative of a_k in fourier space
-    a_xx = jnp.fft.ifft(a_k_xx)
+    a_xx = jnp.fft.ifft(a_k_xx).real
 
     d2_ainv_dt2 = lam + 8*jnp.pi*T - a_xx
     # get the second derivative of a in time
@@ -195,6 +193,33 @@ def da_dt(a0, a1, dt):
     """
     return (a1 - a0) / dt
 
+def wrap_around(i, n):
+    """
+    Wraps the index `i` around the size `n` to ensure it stays within bounds.
+    
+    This function handles negative indices and ensures that the index is always
+    within the range [0, n-1].
+
+    Args:
+        i (int): The index to wrap.
+        n (int): The size of the array.
+
+    Returns:
+        int: The wrapped index.
+    """
+    return lax.cond(i < 0, lambda _: i + n, lambda _: lax.cond(i >= n, lambda _: i - n, lambda _: i, None), None)
+
+def interpolate_alpha(x_n, grid, field, dx):
+    x = x_n[0]
+    # Calculate the index of the field grid corresponding to the particle position
+    i = ((x-grid[0]+dx)//dx).astype(int)
+    
+    n = grid.shape[0]
+    # get the number of grid points
+    # Interpolate the field at the particle position using a quadratic interpolation
+    fields_n = 0.5*field[i]*(0.5+(grid[i]-x)/dx)**2 + field[ wrap_around(i+1,n) ]*(0.75-(grid[i]-x)**2/dx**2) + 0.5*field[ wrap_around(i+2,n) ]*(0.5-(grid[i]-x)/dx)**2
+
+    return fields_n
 
 @jit
 def relativistic_boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_fields_at_x, a1, a0, t, dx, grid, field_BC_left, field_BC_right):
@@ -220,35 +245,32 @@ def relativistic_boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_field
     C = speed_of_light
 
     ################### Relativistic Corrections ###################
-    a1_at_x = vmap(lambda x_n: fields_to_particles_grid(
-    x_n, a1, dx, grid + dx / 2, grid[0], field_BC_left, field_BC_right))(xs_nplushalf)
+    a1_at_x = vmap(lambda x_n: interpolate_alpha(
+    x_n, grid, a1, dx ) )(xs_nplushalf)
     # interpolate the scalar metric `a1` at the particle positions
-
-    da_dt_at_x = vmap(lambda x_n: fields_to_particles_grid(
-        x_n, da_dt(a0, a1, dt), dx, grid + dx / 2, grid[0], field_BC_left, field_BC_right))(xs_nplushalf)
+    da_dt_at_x = vmap(lambda x_n: interpolate_alpha(
+        x_n, grid, da_dt(a0, a1, dt), dx ) )(xs_nplushalf)
     # Calculate the time derivative of the scalar metric `a` at the particle positions
-
-    gamma = 1 / jnp.sqrt( -a1_at_x + jnp.sum(vs_n**2, axis=1) / C**2 / a1_at_x )
+    gamma = 1 / jnp.sqrt( -a1_at_x + jnp.sum( (vs_n**2) ) / a1_at_x / C**2 )
     # calculate the relativistic factor gamma at the particle positions
-
-    relativistic_correction = - gamma * da_dt_at_x / (2 * a1_at_x) * (C**2 - jnp.sum(vs_n**2, axis=1) + C * jnp.sum(vs_n, axis=1) )
+    relativistic_correction = (- gamma * da_dt_at_x / (2*a1_at_x) * (C**2 - jnp.sum(vs_n**2, axis=1) + C * jnp.sum(vs_n, axis=1) ))
     # calculate the relativistic correction factor
+    relativistic_correction = jnp.stack((relativistic_correction, relativistic_correction, relativistic_correction), axis=1)
     ################################################################
 
+    stack_a1 = jnp.stack((a1_at_x, a1_at_x, a1_at_x), axis=1)
+
     # First half step update for velocity due to electric field
-    vs_n_int = vs_n + (q_ms) * E_fields_at_x * dt / 2 * (-1 * a1_at_x) + relativistic_correction
+    vs_n_int = vs_n + (q_ms) * E_fields_at_x * dt / 2 * (-1 * stack_a1) + relativistic_correction
 
     # Apply the Boris rotation step for the magnetic field
     vs_n_rot = vmap(lambda B_n, v_n, q_m: rotation(dt, B_n, v_n, q_m))(B_fields_at_x, vs_n_int, q_ms[:, 0])
 
     # Second half step update for velocity due to electric field
-    vs_nplus1 = vs_n_rot + (q_ms) * E_fields_at_x * dt / 2 * (-1 * a1_at_x) + relativistic_correction
+    vs_nplus1 = vs_n_rot + (q_ms) * E_fields_at_x * dt / 2 * (-1 * stack_a1) + relativistic_correction
     # Update the particle velocities at time step n+1
 
     # Update the particle positions using the new velocities
     xs_nplus3_2 = xs_nplushalf + dt * vs_nplus1
 
     return xs_nplus3_2, vs_nplus1
-    # vs_nplus1 = vs_n + (q_ms) * E_fields_at_x * dt
-    # xs_nplus1 = xs_nplushalf + dt * vs_nplus1
-    # return xs_nplus1, vs_nplus1

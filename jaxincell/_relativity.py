@@ -209,17 +209,32 @@ def wrap_around(i, n):
     """
     return lax.cond(i < 0, lambda _: i + n, lambda _: lax.cond(i >= n, lambda _: i - n, lambda _: i, None), None)
 
-def interpolate_alpha(x_n, grid, field, dx):
+# def interpolate_alpha(x_n, grid, field, dx):
+#     x = x_n[0]
+#     # Calculate the index of the field grid corresponding to the particle position
+#     i = ((x-grid[0]+dx)//dx).astype(int)
+    
+#     n = grid.shape[0]
+#     # get the number of grid points
+#     # Interpolate the field at the particle position using a quadratic interpolation
+#     fields_n = 0.5*field[i]*(0.5+(grid[i]-x)/dx)**2 + field[ wrap_around(i+1,n) ]*(0.75-(grid[i]-x)**2/dx**2) + 0.5*field[ wrap_around(i+2,n) ]*(0.5-(grid[i]-x)/dx)**2
+
+#     return fields_n
+
+def interpolate_alpha(x_n, x_wind, field, dx):
     x = x_n[0]
     # Calculate the index of the field grid corresponding to the particle position
-    i = ((x-grid[0]+dx)//dx).astype(int)
-    
-    n = grid.shape[0]
-    # get the number of grid points
-    # Interpolate the field at the particle position using a quadratic interpolation
-    fields_n = 0.5*field[i]*(0.5+(grid[i]-x)/dx)**2 + field[ wrap_around(i+1,n) ]*(0.75-(grid[i]-x)**2/dx**2) + 0.5*field[ wrap_around(i+2,n) ]*(0.5-(grid[i]-x)/dx)**2
+    n = field.shape[0]
+    i = jnp.floor((x + x_wind/2) / dx).astype(int)
 
-    return fields_n
+    # Linear interpolation
+    i1 = i
+    i2 = wrap_around(i + 1, n)
+
+    delta_x = x -  (i * dx - x_wind/2)
+
+    interp_value = field[i1] * (1 - delta_x / dx) + field[i2] * (delta_x / dx)
+    return interp_value
 
 @jit
 def relativistic_boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_fields_at_x, a1, a0, t, dx, grid, field_BC_left, field_BC_right):
@@ -246,10 +261,10 @@ def relativistic_boris_step(dt, xs_nplushalf, vs_n, q_ms, E_fields_at_x, B_field
 
     ################### Relativistic Corrections ###################
     a1_at_x = vmap(lambda x_n: interpolate_alpha(
-    x_n, grid, a1, dx ) )(xs_nplushalf)
+    x_n, grid[0]*(-2), a1, dx ) )(xs_nplushalf)
     # interpolate the scalar metric `a1` at the particle positions
     da_dt_at_x = vmap(lambda x_n: interpolate_alpha(
-        x_n, grid, da_dt(a0, a1, dt), dx ) )(xs_nplushalf)
+        x_n, grid[0]*(-2), da_dt(a0, a1, dt), dx ) )(xs_nplushalf)
     # Calculate the time derivative of the scalar metric `a` at the particle positions
     gamma = 1 / jnp.sqrt( -a1_at_x + jnp.sum( (vs_n**2) ) / a1_at_x / C**2 )
     # calculate the relativistic factor gamma at the particle positions

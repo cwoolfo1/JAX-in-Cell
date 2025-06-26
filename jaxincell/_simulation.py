@@ -11,7 +11,7 @@ from ._boundary_conditions import set_BC_positions, set_BC_particles
 from ._fields import field_update, E_from_Gauss_1D_Cartesian, E_from_Gauss_1D_FFT, E_from_Poisson_1D_FFT
 from ._constants import speed_of_light, epsilon_0, elementary_charge, mass_electron, mass_proton
 from ._diagnostics import diagnostics
-from ._relativity import relativistic_boris_step, initialize_a, solve_metric
+from ._relativity import initialize_a, solve_metric, relativistic_electrostatic_step
 from jax_tqdm import scan_tqdm
 try: import tomllib
 except ModuleNotFoundError: import pip._vendor.tomli as tomllib
@@ -262,7 +262,7 @@ def initialize_particles_fields(input_parameters={}, number_grid_points=50, numb
     external_E_field_x = parameters["external_electric_field_amplitude"] * jnp.cos(parameters["external_electric_field_wavenumber"] * jnp.linspace(-jnp.pi, jnp.pi, number_grid_points))
     external_B_field_x = parameters["external_magnetic_field_amplitude"] * jnp.cos(parameters["external_magnetic_field_wavenumber"] * jnp.linspace(-jnp.pi, jnp.pi, number_grid_points))
 
-    a0, a1 = initialize_a(number_grid_points)
+    a0, a1, a2 = initialize_a(number_grid_points)
     # initialize a0, a1 using a flat space metric that reproduces special relativity
 
     # **Update parameters**
@@ -272,7 +272,7 @@ def initialize_particles_fields(input_parameters={}, number_grid_points=50, numb
         "initial_velocities": velocities,
         "charges": charges,
         "masses": masses,
-        "metric": [a0, a1],
+        "metric": [a0, a1, a2],
         "charge_to_mass_ratios": charge_to_mass_ratios,
         "fields": fields,
         "grid": grid,
@@ -340,18 +340,18 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         positions - (dt / 2) * velocities,
         parameters["charges"], dx, grid, *box_size,
         particle_BC_left, particle_BC_right)
-    
-    a0, a1 = parameters["metric"]
-    # Initialize a0 and a1 for relativistic Boris step
+
+    a0, a1, a2 = parameters["metric"]
+    # Initialize a0, a1, and a2 for relativistic Boris step
 
     initial_carry = (
         E_field, B_field, positions_minus1_2, positions,
-        positions_plus1_2, velocities, qs, ms, q_ms, a0, a1)
+        positions_plus1_2, velocities, qs, ms, q_ms, a0, a1, a2)
 
     @scan_tqdm(total_steps)
     def simulation_step(carry, step_index):
         (E_field, B_field, positions_minus1_2, positions,
-         positions_plus1_2, velocities, qs, ms, q_ms, a0, a1) = carry
+         positions_plus1_2, velocities, qs, ms, q_ms, a0, a1, a2) = carry
         
         # Add external fields
         total_E = E_field + parameters["external_electric_field"]
@@ -368,8 +368,10 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         # positions_plus3_2, velocities_plus1 = boris_step(
             # dt, positions_plus1_2, velocities, q_ms, E_field_at_x, B_field_at_x)
         
-        positions_plus3_2, velocities_plus1 = relativistic_boris_step(
-            dt, positions_plus1_2, velocities, q_ms, E_field_at_x, B_field_at_x, a1, a0, step_index*dt, dx, grid, field_BC_left, field_BC_right)
+        # positions_plus3_2, velocities_plus1 = relativistic_boris_step(
+        #     dt, positions_plus1_2, velocities, q_ms, E_field_at_x, B_field_at_x, a1, a0, step_index*dt, dx, grid, field_BC_left, field_BC_right)
+
+        positions_plus3_2, velocities_plus1 = relativistic_electrostatic_step(positions_plus1_2, velocities, q_ms, E_field_at_x, a2, a1, a0, dx, dt, grid)
 
         # Apply boundary conditions
         positions_plus3_2, velocities_plus1, qs, ms, q_ms = set_BC_particles(
@@ -401,15 +403,15 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         lam = 0
         G = 6.67430e-11  # Gravitational constant in m^3 kg^-1 s^-2
         # gravitational constant and cosmological constant
-        a2 = solve_metric(a0, a1, lam, velocities, ms, G, dx, dt)
         a0 = a1
         a1 = a2
+        a2 = solve_metric(a0, a1, lam, velocities, ms, G, dx, dt)
         # Update metric for relativistic Boris step
         # print(f"a1 dtype: {a1.dtype}, a0 dtype: {a0.dtype}, a2 dtype: {a2.dtype}")
 
         # Prepare state for the next step
         carry = (E_field, B_field, positions_minus1_2, positions,
-                 positions_plus1_2, velocities, qs, ms, q_ms, a0, a1)
+                 positions_plus1_2, velocities, qs, ms, q_ms, a0, a1, a2)
 
         # Collect data for storage
         charge_density = calculate_charge_density(positions, qs, dx, grid, particle_BC_left, particle_BC_right)

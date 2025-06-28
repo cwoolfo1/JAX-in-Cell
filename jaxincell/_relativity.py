@@ -44,7 +44,7 @@ def energy_momentum_tensor(vs, ms):
 
     C = speed_of_light
 
-    four_velocity = jax.vmap(lambda v : jax.numpy.array([v[0], v[1], v[2], C / jax.numpy.sqrt(1 - (v[0]**2 + v[1]**2 + v[2]**2)/(C**2) )]))(vs, ms)
+    four_velocity = jax.vmap(lambda v : jax.numpy.array([v[0], v[1], v[2], C * jax.numpy.sqrt(1 - (v[0]**2)/(C**2) )]))(vs, ms)
     # v = (v0, v1, v2, gamma * C) defining four vector velocity
 
     energy_momentum_tensor = jnp.asarray( shape = (4,4))
@@ -55,14 +55,14 @@ def energy_momentum_tensor(vs, ms):
     for n in range(n_particles):
         for i in range(4):
             for j in range(4):
-                energy_momentum_tensor[i,j] = ms[n] * four_velocity[n, i] * four_velocity[n, j]
+                energy_momentum_tensor[i,j] += ms[n] * four_velocity[n, i] * four_velocity[n, j]
     # populate the energy momentum tensor with particle 4 momentum
 
 
     return energy_momentum_tensor
 
 
-def trace_energy_momentum_tensor(vs, ms):
+def trace_energy_momentum_tensor(a1, vs, ms):
     """
     Computes the trace of the energy-momentum tensor for a collection of particles.
 
@@ -84,12 +84,13 @@ def trace_energy_momentum_tensor(vs, ms):
     """
 
     C = speed_of_light
-    # Calculate the four-velocity for each particle
-    four_velocity = jax.vmap(lambda v : jax.numpy.array([v[0], v[1], v[2], C / jax.numpy.sqrt(1 - (v[0]**2 + v[1]**2 + v[2]**2)/(C**2) )]), in_axes=(0))(vs)
-    # v = (v0, v1, v2, gamma * C) defining four vector velocity
-    trace = jax.vmap(lambda v, m: m*jnp.sum(jnp.square(v)), in_axes=(0,0))(four_velocity, ms)
+    # # Calculate the four-velocity for each particle
+    four_velocity = jax.vmap(lambda v : jax.numpy.array([ C * jax.numpy.sqrt(1 - (v[0]**2 / C**2)),  v[0] ]), in_axes=(0))(vs)
+    # v = (v0, gamma * C) defining four vector velocity
+    trace = jax.vmap(lambda v, m: m*a1*v[0]**2 - m*v[1]**2 / a1, in_axes=(0,0))(four_velocity, ms)
     # compute the trace of outerproduct of the four velocity times the mass of the particle
-    return jnp.sum(trace)
+
+    return jnp.sum(trace, axis=0)
 
 
 def solve_metric(a0, a1, lam, vs, ms, G, dx, dt):
@@ -120,33 +121,46 @@ def solve_metric(a0, a1, lam, vs, ms, G, dx, dt):
 
     C = speed_of_light
 
-    a0_inv = 1/a0
-    a1_inv = 1/a1
-    # compute the inverses of the metric
-
-    T = trace_energy_momentum_tensor(vs, ms)
+    T = trace_energy_momentum_tensor(a1, vs, ms)
     # calculate the trace of the energy momentum tensor
 
-    nx = a1.shape[0]
-    # get the number of array points
-    kx = jnp.fft.fftfreq(nx, d=dx) * 2 * jnp.pi
-    # get the kx wavevector
+    # nx = a1.shape[0]
+    # # get the number of array points
+    # kx = jnp.fft.fftfreq(nx, d=dx) * 2 * jnp.pi
+    # # get the kx wavevector
 
-    a_k = jnp.fft.fft(a1)
-    # fourier transform alpha
+    # a_k = jnp.fft.fft(a1)
+    # # fourier transform alpha
 
-    a_k_xx = -kx**2 * a_k
-    # second derivative of a_k in fourier space
-    a_xx = jnp.fft.ifft(a_k_xx).real
+    # a_k_xx = -kx**2 * a_k
+    # # second derivative of a_k in fourier space
+    # a_xx = jnp.fft.ifft(a_k_xx).real
 
-    d2_ainv_dt2 = lam + 8*jnp.pi/C**4 * T - a_xx
-    # get the second derivative of a in time
+    a_xx = ( jnp.roll(a1, shift=-1) + jnp.roll(a1, shift=1) - 2 * a1 ) / (dx**2)
+    # compute the second derivative of a in real space using finite differences
 
-    a2_inv = 2*a1_inv - a0_inv + ( dt**2  * d2_ainv_dt2 )
-    # evolve the inverse of the metric using the differential equation
+    # d2_ainv_dt2 =  ( lam + 8*G*jnp.pi/C**4*T + a_xx )
+    # # get the second derivative of a in time
 
-    a2 = 1 / a2_inv
-    # compute the metric using its inverse
+    # a2_inv = 2*a1_inv - a0_inv + ( dt**2  * d2_ainv_dt2 )
+    # # evolve the inverse of the metric using the differential equation
+
+    # a2 = 1 / a2_inv
+    # # compute the metric using its inverse
+    # Ensure all calculations use 64-bit precision
+    C = jnp.float64(C)
+    G = jnp.float64(G)
+    lam = jnp.float64(lam)
+    dt = jnp.float64(dt)
+    dx = jnp.float64(dx)
+    a0 = a0.astype(jnp.float64)
+    a1 = a1.astype(jnp.float64)
+    a_xx = a_xx.astype(jnp.float64)
+    T = jnp.float64(T)
+
+    a2 = (2 * a1 - a0 - dt * a0 / a1 + dt**2 * a1**2 * (C**2 * lam + C**2*8*G*jnp.pi*T + C**2 * a_xx)) / (1 - dt / a1)
+
+
 
 
     return a2

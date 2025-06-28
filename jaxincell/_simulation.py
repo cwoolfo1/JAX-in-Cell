@@ -408,10 +408,8 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         a2 = solve_metric(a0, a1, lam, velocities, ms, G, dx, dt)
         # Update metric for relativistic Boris step
         # print(f"a1 dtype: {a1.dtype}, a0 dtype: {a0.dtype}, a2 dtype: {a2.dtype}")
-
-
         # jprint("trace_energy_momentum_tensor shape: {}", trace_energy_momentum_tensor(a1, velocities, ms))
-        jprint("a2:  {}", jnp.sum(a2))
+        # jprint("a2:  {}", jnp.sum(a2))
 
         # Prepare state for the next step
         carry = (E_field, B_field, positions_minus1_2, positions,
@@ -420,7 +418,7 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         # Collect data for storage
         charge_density = calculate_charge_density(positions, qs, dx, grid, particle_BC_left, particle_BC_right)
         step_data = (positions, velocities, E_field, B_field, J, charge_density, a0)
-        
+
         return carry, step_data
 
     # Run simulation

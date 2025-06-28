@@ -54,11 +54,11 @@ def plot(output):
 
     # Charge density plot
     im2 = axes[0, 1].imshow(
-        output["charge_density"], aspect="auto", cmap="RdBu", origin="lower",
+        output['alpha'], aspect="auto", cmap="RdBu", origin="lower",
         extent=[grid[0], grid[-1], 0, time[-1]]
     )
-    axes[0, 1].set(title="Charge Density", xlabel="Position (m)", ylabel=r"Time ($\omega_{pe}^{-1}$)")
-    fig.colorbar(im2, ax=axes[0, 1], label="Charge density (C/m³)")
+    axes[0, 1].set(title="Alpha", xlabel="Position (m)", ylabel=r"Time ($\omega_{pe}^{-1}$)")
+    fig.colorbar(im2, ax=axes[0, 1], label="Alpha (dimensionless)")
     
     # Different Electric Field Calculations
     ## Precompute E fields with vmap

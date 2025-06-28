@@ -11,7 +11,7 @@ from ._boundary_conditions import set_BC_positions, set_BC_particles
 from ._fields import field_update, E_from_Gauss_1D_Cartesian, E_from_Gauss_1D_FFT, E_from_Poisson_1D_FFT
 from ._constants import speed_of_light, epsilon_0, elementary_charge, mass_electron, mass_proton
 from ._diagnostics import diagnostics
-from ._relativity import initialize_a, solve_metric, relativistic_electrostatic_step
+from ._relativity import initialize_a, solve_metric, relativistic_electrostatic_step, trace_energy_momentum_tensor
 from jax_tqdm import scan_tqdm
 try: import tomllib
 except ModuleNotFoundError: import pip._vendor.tomli as tomllib
@@ -401,7 +401,7 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         positions = positions_plus1
 
         lam = 0
-        G = 6.67430e-11  # Gravitational constant in m^3 kg^-1 s^-2
+        G = 6.6743e-11  # Gravitational constant in m^3 kg^-1 s^-2
         # gravitational constant and cosmological constant
         a0 = a1
         a1 = a2
@@ -409,13 +409,17 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         # Update metric for relativistic Boris step
         # print(f"a1 dtype: {a1.dtype}, a0 dtype: {a0.dtype}, a2 dtype: {a2.dtype}")
 
+
+        # jprint("trace_energy_momentum_tensor shape: {}", trace_energy_momentum_tensor(a1, velocities, ms))
+        jprint("a2:  {}", jnp.sum(a2))
+
         # Prepare state for the next step
         carry = (E_field, B_field, positions_minus1_2, positions,
                  positions_plus1_2, velocities, qs, ms, q_ms, a0, a1, a2)
 
         # Collect data for storage
         charge_density = calculate_charge_density(positions, qs, dx, grid, particle_BC_left, particle_BC_right)
-        step_data = (positions, velocities, E_field, B_field, J, charge_density)
+        step_data = (positions, velocities, E_field, B_field, J, charge_density, a0)
         
         return carry, step_data
 
@@ -424,8 +428,8 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
 
     # Unpack results
     positions_over_time, velocities_over_time, electric_field_over_time, \
-    magnetic_field_over_time, current_density_over_time, charge_density_over_time = results
-    
+    magnetic_field_over_time, current_density_over_time, charge_density_over_time, alpha_over_time = results
+
     # **Output results**
     temporary_output = {
         # "all_positions":  positions_over_time,
@@ -440,6 +444,7 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         "charge_ions":        parameters["charges"][  number_pseudoelectrons:],
         "electric_field":  electric_field_over_time,
         "magnetic_field":  magnetic_field_over_time,
+        "alpha"         : alpha_over_time,
         "current_density": current_density_over_time,
         "charge_density":  charge_density_over_time,
         "number_grid_points":     number_grid_points,

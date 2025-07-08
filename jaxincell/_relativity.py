@@ -85,9 +85,9 @@ def trace_energy_momentum_tensor(a1, vs, ms):
 
     C = speed_of_light
     # # Calculate the four-velocity for each particle
-    four_velocity = jax.vmap(lambda v : jax.numpy.array([ C * jax.numpy.sqrt(1 - (v[0]**2 / C**2)),  v[0] ]), in_axes=(0))(vs)
+    four_velocity = jax.vmap(lambda v : jax.numpy.array([ C * jax.numpy.sqrt(1 + (v[0]**2 / C**2)),  v[0] ]), in_axes=(0))(vs)
     # v = (v0, gamma * C) defining four vector velocity
-    trace = jax.vmap(lambda v, m: m*a1*v[0]**2 - m*v[1]**2 / a1, in_axes=(0,0))(four_velocity, ms)
+    trace = jax.vmap(lambda v, m: m * (   a1 * v[1]**2 - (v[0]**2 / a1)   ), in_axes=(0,0))(four_velocity, ms)
     # compute the trace of outerproduct of the four velocity times the mass of the particle
 
     return jnp.sum(trace, axis=0)
@@ -279,7 +279,7 @@ def relativistic_electrostatic_step(xs_nplushalf, vs_n, q_ms, E_fields_at_x, a2,
     vx_nplushalf = vs_n[:, 0]
     # Get the x-component of the particle velocities at time step n+1/2
 
-    gamma = jnp.sqrt(1 - (vx_nplushalf/C)**2 )
+    gamma = jnp.sqrt(1 + (vx_nplushalf/C)**2 )
     # Calculate the relativistic factor gamma at the particle positions
 
     vx_nplus1 = vx_nplushalf -1 * (q_ms[:,0]) * E_fields_at_x[:, 0] * a1_at_x * dt + \

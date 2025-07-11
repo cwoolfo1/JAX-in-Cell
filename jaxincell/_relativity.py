@@ -62,7 +62,7 @@ def energy_momentum_tensor(vs, ms):
     return energy_momentum_tensor
 
 
-def trace_energy_momentum_tensor(a1, vs, ms):
+def trace_energy_momentum_tensor(a1, a1_at_x, vs, ms):
     """
     Computes the trace of the energy-momentum tensor for a collection of particles.
 
@@ -86,7 +86,9 @@ def trace_energy_momentum_tensor(a1, vs, ms):
     C = speed_of_light
     # # Calculate the four-velocity for each particle
         # gamma = jnp.sqrt(  (a1_at_x * vx_nplushalf / C )**2  - a1_at_x )
-    four_velocity = jax.vmap(lambda v : jax.numpy.array([ C * jax.numpy.sqrt(1 + (v[0]**2 / C**2)),  v[0] ]), in_axes=(0))(vs)
+    # gamma = jnp.sqrt(  (a1_at_x * vx_nplushalf / C )**2  - a1_at_x )
+
+    four_velocity = jax.vmap(lambda v, a : jax.numpy.array([ C * jax.numpy.sqrt( (a * v / C)**2 - a ),  v ]), in_axes=(0,0))(vs, a1_at_x)
     # v = (v0, gamma * C) defining four vector velocity
     trace = jax.vmap(lambda v, m: m * (   a1 * v[1]**2 - (v[0]**2 / a1)   ), in_axes=(0,0))(four_velocity, ms)
     # compute the trace of outerproduct of the four velocity times the mass of the particle
@@ -94,7 +96,7 @@ def trace_energy_momentum_tensor(a1, vs, ms):
     return jnp.sum(trace, axis=0)
 
 
-def solve_metric(a0, a1, lam, vs, ms, G, dx, dt):
+def solve_metric(a0, a1, lam, xs, vs, ms, G, dx, dt, grid):
     """
     Evolve the scalar metric for 2D General Relativity using the energy-momentum tensor.
 
@@ -122,7 +124,17 @@ def solve_metric(a0, a1, lam, vs, ms, G, dx, dt):
 
     C = speed_of_light
 
-    T = trace_energy_momentum_tensor(a1, vs, ms)
+    x_wind = grid[-1] - grid[0]
+    # Calculate the width of the grid in the x-direction
+
+    # Interpolate the scalar metric `a1` at the particle positions
+    a1_at_x = vmap(lambda x_n: interpolate_alpha(
+        x_n, x_wind, a1, dx))(xs)
+    
+    print(f"a1_at_x shape: {a1_at_x.shape}, a1 shape: {a1.shape}, xs shape: {xs.shape}, dx: {dx}")
+    print(f"vs shape: {vs.shape}, ms shape: {ms.shape}, G: {G}, dt: {dt}, grid shape: {grid.shape}")
+
+    T = trace_energy_momentum_tensor(a1, a1_at_x, vs[:,0], ms)
     # calculate the trace of the energy momentum tensor
 
     # nx = a1.shape[0]
@@ -280,8 +292,8 @@ def relativistic_electrostatic_step(xs_nplushalf, vs_n, q_ms, E_fields_at_x, a2,
     vx_nplushalf = vs_n[:, 0]
     # Get the x-component of the particle velocities at time step n+1/2
 
-    gamma = jnp.sqrt(1 + (vx_nplushalf/C)**2 )
-    # gamma = jnp.sqrt(  (a1_at_x * vx_nplushalf / C )**2  - a1_at_x )
+    # gamma = jnp.sqrt(1 + (vx_nplushalf/C)**2 )
+    gamma = jnp.sqrt(  (a1_at_x * vx_nplushalf / C )**2  - a1_at_x )
     # Calculate the relativistic factor gamma at the particle positions
 
     vx_nplus1 = vx_nplushalf -1 * (q_ms[:,0]) * E_fields_at_x[:, 0] * a1_at_x * dt + \

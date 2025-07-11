@@ -405,7 +405,8 @@ def simulation(input_parameters={}, number_grid_points=100, number_pseudoelectro
         # gravitational constant and cosmological constant
         a0 = a1
         a1 = a2
-        a2 = solve_metric(a0, a1, lam, velocities, ms, G, dx, dt)
+        a2 = solve_metric(a0, a1, lam, positions, velocities, ms, G, dx, dt, grid)
+        # a0, a1, lam, xs, vs, ms, G, dx, dt, grid
         # Update metric for relativistic Boris step
         # print(f"a1 dtype: {a1.dtype}, a0 dtype: {a0.dtype}, a2 dtype: {a2.dtype}")
         # jprint("trace_energy_momentum_tensor shape: {}", trace_energy_momentum_tensor(a1, velocities, ms))

@@ -242,6 +242,17 @@ These parameters control the numerical discretization, algorithm selection, and 
 | `print_info` | Print simulation details to console. |
 </details>
 
+# ###  Bump on Tail Domenstration
+
+<h3>Periodic Boundary Condition</h3>
+<video src="[bump_on_tail_explicit_periodic.mp4](https://github.com/user-attachments/assets/41293637-b0d8-42bd-b35c-2a6d6aa30d34)" controls="controls" style="max-width: 100%;">
+</video>
+
+<br/>
+
+<h3>Reflective Boundary Condition</h3>
+<video src="[bump_on_tail_explicit_reflective.mp4](https://github.com/user-attachments/assets/e32d491e-8c78-48bd-801e-790cb5ab40a1)" controls="controls" style="max-width: 100%;">
+</video>
 
 ###  Testing
 Run the test suite using the following command:

@@ -187,7 +187,7 @@ These parameters control the numerical discretization, algorithm selection, and 
 
 | Parameter Key | Description |
 | :--- | :--- |
-| `number_grid_points` | Number of spatial grid **cells**. |
+| `number_grid_points` | Number of spatial grid cells. |
 | `total_steps`  | Total number of time steps to run. |
 | `number_pseudoelectrons` | Total number of electron macroparticles. |
 | `number_pseudoparticles_species` | List of particle counts for additional species. |
@@ -212,8 +212,8 @@ These parameters control the numerical discretization, algorithm selection, and 
 | `timestep_over_spatialstep_times_c`  | CFL condition factor: $c \Delta t / \Delta x$. |
 | **Initialization** | | |
 | `seed` | Random seed for reproducibility. |
-| `random_positions_x` ` | Randomize particle positions in X (True) or use uniform spacing (False). |
-| `weight` | Particle weight (0 enables auto-calculation based on density). |
+| `random_positions_x`  | Randomize particle positions in x axis. |
+| `weight` | Particle weight. |
 | **Species Properties** | | |
 | `electron_charge_over_elementary_charge` | Electron charge (normalized to $e$). |
 | `ion_charge_over_elementary_charge`  | Ion charge (normalized to $e$). |
@@ -233,9 +233,9 @@ These parameters control the numerical discretization, algorithm selection, and 
 | `external_magnetic_field_amplitude`  | Amplitude of external B-field (cosine). |
 | `external_magnetic_field_wavenumber` | Wavenumber of external B-field. |
 | **Boundary Conditions** | | |
-| `particle_BC_left,right` | Left,right Particle BC (0: periodic, 1: reflective, 2: absorbing). |
+| `particle_BC_left,right` | Left,right particle boundary conditon (0: periodic, 1: reflective, 2: absorbing). |
 | **Numerics** | | |
-| `filter_passes` | Number of passes of the digital filter for Charge/Current density. |
+| `filter_passes` | Number of passes of the digital filter for charge/current density. |
 | `filter_alpha`  | Smoothing strength (0.0 to 1.0). |
 | `filter_strides` | Multi-scale filtering strides. |
 | `tolerance_Picard_iterations_implicit_CN`  | Tolerance for implicit solver iterations. |

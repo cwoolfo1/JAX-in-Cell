@@ -173,11 +173,11 @@ python examples/two-stream_instability.py
 
 There, you can find most of the input parameters needed to run many test cases, as well as resolution parameters.
 
-## Parameters
+### Parameters
 
 JAX-in-Cell is highly configurable. Below is a list of the available parameters that can be defined in the TOML configuration file or the Python input dictionary.
 
-# Solver Parameters
+#### Solver Parameters
 
 These parameters control the numerical discretization, algorithm selection, and simulation resolution.
 
@@ -186,7 +186,7 @@ These parameters control the numerical discretization, algorithm selection, and 
 <br>
 
 | Parameter Key | Description |
-| :--- | :--- | :--- |
+| :--- | :--- |
 | `number_grid_points` | Number of spatial grid **cells**. |
 | `total_steps`  | Total number of time steps to run. |
 | `number_pseudoelectrons` | Total number of electron macroparticles. |
@@ -199,14 +199,14 @@ These parameters control the numerical discretization, algorithm selection, and 
 | `number_of_particle_substeps_implicit_CN` | Number of particle orbit substeps (only for algorithm 1). |
 </details>
 
-# Input Parameters
+#### Input Parameters
 
 <details>
 <summary><strong>Click to expand full Parameter Table</strong></summary>
 <br>
 
 | Parameter Key  | Description |
-| :--- | :--- | :--- |
+| :--- | :--- |
 | `length` | Total length of the simulation box (meters). |
 | `grid_points_per_Debye_length`  | $\Delta x$ over Debye length. |
 | `timestep_over_spatialstep_times_c`  | CFL condition factor: $c \Delta t / \Delta x$. |

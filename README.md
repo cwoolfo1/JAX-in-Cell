@@ -95,9 +95,11 @@ Plenty of examples are provided in the `examples` folder, and the documentation 
 	│   ├── scaling_energy_time.py
     │   └── optimize_two_stream_saturation.py
     ├── jaxincell
+    │   ├── algorithms.py
     │   ├── boundary_conditions.py
     │   ├── constants.py
     │   ├── diagnostics.py
+    │   ├── filters.py
     │   ├── fields.py
     │   ├── particles.py
     │   ├── plot.py
@@ -158,21 +160,88 @@ To run a simple case of JAX-in-Cell, you can simply call `jaxincell` from the te
 jaxincell
 ```
 
-This runs JAX-in-Cell using standard input parameters of Landau damping. To change input parameters, use a TOML file similar to the [example input](example_input.toml) present in the repository as
+This runs JAX-in-Cell using standard input parameters of Landau damping. To change input parameters, use a TOML file similar to the [example script](examples/input.toml) present in the repository as
 
 ```sh
 jaxincell example_input.toml
 ```
 
-Additionally, it can be run inside a script, as shown in the [example script](example_script.py) file
+Additionally, it can be run inside a script, as shown in the [example script](examples/two-stream_instability.py) file
 ```sh
-python example_script.py
+python examples/two-stream_instability.py
 ```
 
 There, you can find most of the input parameters needed to run many test cases, as well as resolution parameters.
-The `jaxincell` package has a single function `simulation()` that takes as arguments a dictionary input_parameters, the number of grid points, number of pseudoelectrons, total number of time steps, and the field solver to use.
 
-In the [example script](example_script.py) file we write as inline comments the meaning of each input parameter.
+## Parameters
+
+JAX-in-Cell is highly configurable. Below is a list of the available parameters that can be defined in the TOML configuration file or the Python input dictionary.
+
+# Solver Parameters
+
+These parameters control the numerical discretization, algorithm selection, and simulation resolution.
+
+<details>
+<summary><strong>Click to expand full Solver Parameter Table</strong></summary>
+<br>
+
+| Parameter Key | Description |
+| :--- | :--- | :--- |
+| `number_grid_points` | Number of spatial grid **cells**. |
+| `total_steps`  | Total number of time steps to run. |
+| `number_pseudoelectrons` | Total number of electron macroparticles. |
+| `number_pseudoparticles_species` | List of particle counts for additional species. |
+| **Algorithms** | | |
+| `time_evolution_algorithm` | **0**: Explicit Boris pusher<br> **1**: Implicit Crank-Nicolson |
+| `field_solver` | **0**: Electromagnetic (Curl_EB)<br>**1**: Electrostatic (Gauss FFT)<br>**2**: Electrostatic (Gauss Finite Diff)<br>**3**: Poisson (FFT) |
+| **Implicit Solver Settings** | | |
+| `max_number_of_Picard_iterations_implicit_CN` | Max Picard iterations per time step (only for algorithm 1). |
+| `number_of_particle_substeps_implicit_CN` | Number of particle orbit substeps (only for algorithm 1). |
+</details>
+
+# Input Parameters
+
+<details>
+<summary><strong>Click to expand full Parameter Table</strong></summary>
+<br>
+
+| Parameter Key  | Description |
+| :--- | :--- | :--- |
+| `length` | Total length of the simulation box (meters). |
+| `grid_points_per_Debye_length`  | $\Delta x$ over Debye length. |
+| `timestep_over_spatialstep_times_c`  | CFL condition factor: $c \Delta t / \Delta x$. |
+| **Initialization** | | |
+| `seed` | Random seed for reproducibility. |
+| `random_positions_x` ` | Randomize particle positions in X (True) or use uniform spacing (False). |
+| `weight` | Particle weight (0 enables auto-calculation based on density). |
+| **Species Properties** | | |
+| `electron_charge_over_elementary_charge` | Electron charge (normalized to $e$). |
+| `ion_charge_over_elementary_charge`  | Ion charge (normalized to $e$). |
+| `ion_mass_over_proton_mass` | Ion mass (normalized to proton mass). |
+| `relativistic` | Use relativistic Boris pusher. |
+| `vth_electrons_over_c_x,y,z`  | Electron thermal velocity in x,y,z. |
+| `ion_temperature_over_electron_temperature_x,y,z` | Ratio $T_i/T_e$ in x,y,z. |
+| `electron_drift_speed_x` | Electron drift speed (m/s) in X. |
+| `ion_drift_speed_x`  | Ion drift speed (m/s) in X. |
+| `velocity_plus_minus_electrons_x` | Create counter-streaming electron populations in X. |
+| **Perturbations** | | |
+| `amplitude_perturbation_x` | Amplitude of density perturbation in X. |
+| `wavenumber_electrons_x` | Mode number $k$ (factor of $2\pi/L$) for electrons in X. |
+| **External Fields** | | |
+| `external_electric_field_amplitude`  | Amplitude of external E-field (cosine). |
+| `external_electric_field_wavenumber` | Wavenumber of external E-field. |
+| `external_magnetic_field_amplitude`  | Amplitude of external B-field (cosine). |
+| `external_magnetic_field_wavenumber` | Wavenumber of external B-field. |
+| **Boundary Conditions** | | |
+| `particle_BC_left,right` | Left,right Particle BC (0: periodic, 1: reflective, 2: absorbing). |
+| **Numerics** | | |
+| `filter_passes` | Number of passes of the digital filter for Charge/Current density. |
+| `filter_alpha`  | Smoothing strength (0.0 to 1.0). |
+| `filter_strides` | Multi-scale filtering strides. |
+| `tolerance_Picard_iterations_implicit_CN`  | Tolerance for implicit solver iterations. |
+| `print_info` | Print simulation details to console. |
+</details>
+
 
 ###  Testing
 Run the test suite using the following command:

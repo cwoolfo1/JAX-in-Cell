@@ -550,8 +550,8 @@ def plot(
         # LogNorm for visibility at low counts (add 1 in the images)
         e_vmax = float(max(np.percentile(e_counts + 1.0, 99.5), 2.0))
         i_vmax = float(max(np.percentile(i_counts + 1.0, 99.5), 2.0))
-        norm_e = LogNorm(vmin=1.0, vmax=e_vmax)
-        norm_i = LogNorm(vmin=1.0, vmax=i_vmax)
+        norm_e = None#LogNorm(vmin=1.0, vmax=e_vmax)
+        norm_i = None#LogNorm(vmin=1.0, vmax=i_vmax)
 
         pre_ps[d] = _PrecomputedPhaseSpace(
             e_counts=e_counts,

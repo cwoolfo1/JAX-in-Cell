@@ -243,15 +243,16 @@ These parameters control the numerical discretization, algorithm selection, and 
 </details>
 
 ###  Bump on Tail Domenstration
+Here is a simple demonstration with electrons and ions moving in the x direction, including additional species with different weights (i.e., different real-particle number densities). A detailed list of parameters can be found in the bump-on-tail example.
 
 <h3>Periodic Boundary Condition</h3>
-<video src="https://github.com/user-attachments/assets/9f33bac8-319e-4aba-91fb-befc64bca70e" controls="controls" style="max-width: 100%;">
+<video src="https://github.com/user-attachments/assets/5f085f92-cb65-4765-b586-19e727bd2aab" controls="controls" style="max-width: 100%;">
 </video>
 
 <br/>
 
 <h3>Reflective Boundary Condition</h3>
-<video src="https://github.com/user-attachments/assets/5f085f92-cb65-4765-b586-19e727bd2aab" controls="controls" style="max-width: 100%;">
+<video src="https://github.com/user-attachments/assets/9f33bac8-319e-4aba-91fb-befc64bca70e" controls="controls" style="max-width: 100%;">
 </video>
 
 ###  Testing

@@ -163,7 +163,7 @@ jaxincell
 This runs JAX-in-Cell using standard input parameters of Landau damping. To change input parameters, use a TOML file similar to the [example script](examples/input.toml) present in the repository as
 
 ```sh
-jaxincell example_input.toml
+jaxincell examples/input.toml
 ```
 
 Additionally, it can be run inside a script, as shown in the [example script](examples/two-stream_instability.py) file
@@ -245,13 +245,13 @@ These parameters control the numerical discretization, algorithm selection, and 
 ###  Bump on Tail Domenstration
 
 <h3>Periodic Boundary Condition</h3>
-<video src="https://github.com/user-attachments/assets/e32d491e-8c78-48bd-801e-790cb5ab40a1" controls="controls" style="max-width: 100%;">
+<video src="https://github.com/user-attachments/assets/9f33bac8-319e-4aba-91fb-befc64bca70e" controls="controls" style="max-width: 100%;">
 </video>
 
 <br/>
 
 <h3>Reflective Boundary Condition</h3>
-<video src="https://github.com/user-attachments/assets/41293637-b0d8-42bd-b35c-2a6d6aa30d34" controls="controls" style="max-width: 100%;">
+<video src="https://github.com/user-attachments/assets/5f085f92-cb65-4765-b586-19e727bd2aab" controls="controls" style="max-width: 100%;">
 </video>
 
 ###  Testing
@@ -259,6 +259,8 @@ Run the test suite using the following command:
 ```sh
 pytest .
 ```
+
+
 
 ---
 ##  Project Roadmap
